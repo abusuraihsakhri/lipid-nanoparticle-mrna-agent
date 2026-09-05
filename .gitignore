@@ -4,7 +4,11 @@ __pycache__/
 .pytest_cache/
 results.csv
 output.csv
+batch_results.csv
 *.log
 dist/
 build/
 *.egg-info/
+.venv/
+venv/
+.env
