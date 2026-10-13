@@ -2,7 +2,9 @@
 FastAPI REST API Server for Lipid Nanoparticle Mrna Agent.
 """
 from typing import Dict, Any, List
+from importlib.resources import files
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from .base import AuditLogger, PHIGuard, SecurityException
 from .models import SystemTaskPayload, ConsensusDossier
@@ -29,6 +31,12 @@ class MeasurementRequest(BaseModel):
     free_mrna: float
     ph: float
     pka: float
+
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def browser_interface():
+    """Provide a same-origin UI so server audit requests work locally."""
+    return files("web").joinpath("index.html").read_text(encoding="utf-8")
 
 
 @app.get("/health")
