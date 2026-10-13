@@ -157,21 +157,21 @@ byId("export").addEventListener("click", () => {
   link.href = url;
   link.download = "lnp-measurements.json";
   link.click();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 byId("audit-form").addEventListener("submit", async event => {
   event.preventDefault();
   byId("audit-error").textContent = "";
   byId("audit-output").textContent = "Contacting backend...";
-  const payload = {
+  try {
+    const payload = {
     task_id: byId("task_id").value,
     target_identifier: byId("target_id").value,
     primary_metric: numberFrom("primary_metric"),
     secondary_metric: numberFrom("secondary_metric"),
     status_descriptor: byId("status_descriptor").value,
     is_critical_flag: byId("critical").checked
-  };
-  try {
+    };
     const response = await fetch("/api/audit", {method:"POST", headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
     if (!response.ok) throw new Error("Backend returned HTTP " + response.status + ". Check inputs or server availability.");
     const result = await response.json();
