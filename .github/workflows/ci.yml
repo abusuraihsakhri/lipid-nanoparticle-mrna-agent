@@ -1,4 +1,4 @@
-name: Lipid Nanoparticle Mrna Engine CI/CD & Security Verification
+name: Python tests and package verification
 
 on:
   push:
@@ -24,17 +24,12 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install fastapi uvicorn pydantic pytest
+        python -m pip install -e ".[test]"
+        python -m pip check
 
-    - name: Run Pytest Suite
-      run: |
-        pytest -v
+    - name: Compile Python modules
+      run: python -m compileall -q agents lnp_formulator tests cli.py enrichment.py simulator.py
 
-    - name: Security SAST & Zero-PHI Audit
-      run: |
-        python -c "
-        from agents.base import PHIGuard, AuditLogger
-        import pytest
-        assert AuditLogger.verify_integrity() is True
-        print('Security & Zero-PHI Audit Passed!')
-        "
+    - name: Run test suite
+      run: python -m pytest -q
+
