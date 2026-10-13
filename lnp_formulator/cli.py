@@ -7,6 +7,7 @@ import json
 import sys
 from .models import FrontierPayload
 from .agents import LNPFormulatorCoordinator
+from .calculations import np_ratio, encapsulation_efficiency_percent, protonated_fraction
 
 coordinator = LNPFormulatorCoordinator()
 
@@ -23,6 +24,15 @@ def main(argv=None):
     p_audit.add_argument("--secondary", type=float, default=15.1)
     p_audit.add_argument("--critical", action="store_true")
     p_audit.add_argument("--status", default="DISCORDANT")
+
+    # Measured LNP properties; no empirical prediction is performed.
+    p_measure = subparsers.add_parser("measure", help="Calculate measured LNP quantities")
+    p_measure.add_argument("--nitrogen", type=float, required=True, help="Ionizable nitrogen amount (e.g. nmol)")
+    p_measure.add_argument("--phosphate", type=float, required=True, help="RNA phosphate amount (same molar unit)")
+    p_measure.add_argument("--total-mrna", type=float, required=True, help="Total mRNA quantity")
+    p_measure.add_argument("--free-mrna", type=float, required=True, help="Unencapsulated mRNA (same unit)")
+    p_measure.add_argument("--ph", type=float, required=True)
+    p_measure.add_argument("--pka", type=float, required=True, help="Experimentally measured apparent pKa")
 
     # Chat
     p_chat = subparsers.add_parser("chat", help="System configuration query")
@@ -61,6 +71,21 @@ def main(argv=None):
             print(f"  Details: {a['technical_details']}")
             print(f"  Action:  {a['actionable_remediation']}")
         print("\n" + "=" * 80)
+        return 0
+
+    if args.command == "measure":
+        try:
+            measured = {
+                "np_ratio": np_ratio(args.nitrogen, args.phosphate),
+                "encapsulation_efficiency_percent": encapsulation_efficiency_percent(
+                    args.total_mrna, args.free_mrna
+                ),
+                "protonated_fraction_ideal": protonated_fraction(args.ph, args.pka),
+            }
+        except ValueError as exc:
+            print(f"Invalid measurement: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(measured, indent=2))
         return 0
 
     if args.command == "chat":
