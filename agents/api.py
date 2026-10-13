@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from .base import AuditLogger, PHIGuard, SecurityException
 from .models import SystemTaskPayload, ConsensusDossier
 from .supervisor import SystemSupervisor
+from lnp_formulator.calculations import np_ratio, encapsulation_efficiency_percent, protonated_fraction
 
 supervisor = SystemSupervisor(model_provider="mock")
 
@@ -19,6 +20,15 @@ app = FastAPI(
 
 class ChatRequest(BaseModel):
     query: str
+
+
+class MeasurementRequest(BaseModel):
+    nitrogen_moles: float
+    phosphate_moles: float
+    total_mrna: float
+    free_mrna: float
+    ph: float
+    pka: float
 
 
 @app.get("/health")
@@ -42,6 +52,20 @@ def api_audit(payload: SystemTaskPayload):
     except SecurityException:
         raise HTTPException(status_code=422, detail="Sensitive identifier detected in request") from None
     return dossier.to_dict()
+
+
+@app.post("/api/measure")
+def api_measure(req: MeasurementRequest):
+    try:
+        return {
+            "np_ratio": np_ratio(req.nitrogen_moles, req.phosphate_moles),
+            "encapsulation_efficiency_percent": encapsulation_efficiency_percent(
+                req.total_mrna, req.free_mrna
+            ),
+            "protonated_fraction_ideal": protonated_fraction(req.ph, req.pka),
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
 
 
 @app.post("/api/chat")
