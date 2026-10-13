@@ -4,6 +4,18 @@ Command-Line Interface for LNP-Formulator: Ionizable Lipid pKa & mRNA Encapsulat
 import argparse
 import csv
 import json
+import re
+
+_NUMERIC_LITERAL = re.compile(r"^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?$")
+
+
+def _csv_safe(value):
+    """Prevent spreadsheet formulas in exported user-controlled CSV cells."""
+    if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")):
+        if not _NUMERIC_LITERAL.fullmatch(value.strip()):
+            return "'" + value
+    return value
+
 import sys
 from .models import FrontierPayload
 from .agents import LNPFormulatorCoordinator
@@ -103,16 +115,22 @@ def main(argv=None):
             with open(args.input, mode="r", encoding="utf-8-sig") as f:
                 reader = csv.DictReader(f)
                 fieldnames = list(reader.fieldnames or [])
+                required = {"task_id", "target_identifier", "primary_metric"}
+                if not required.issubset(fieldnames):
+                    print(f"Missing required CSV columns: {', '.join(sorted(required - set(fieldnames)))}", file=sys.stderr)
+                    return 1
                 rows = list(reader)
         except (csv.Error, UnicodeDecodeError) as e:
             print(f"Error reading CSV: {e}", file=sys.stderr)
             return 1
 
-        out_fields = fieldnames + ["overall_status", "total_alerts", "critical_count", "consensus_summary"]
+        out_fields = list(dict.fromkeys(fieldnames + ["overall_status", "total_alerts", "critical_count", "consensus_summary"]))
         out_rows = []
         errors = 0
         for idx, r in enumerate(rows, start=2):
             try:
+                if None in r:
+                    raise ValueError("unexpected extra CSV columns")
                 payload = FrontierPayload(
                     task_id=r.get("task_id", "TASK-01"),
                     target_identifier=r.get("target_identifier", "TARGET-01"),
@@ -136,7 +154,7 @@ def main(argv=None):
             with open(args.output, mode="w", encoding="utf-8", newline="") as f:
                 writer = csv.DictWriter(f, fieldnames=out_fields)
                 writer.writeheader()
-                writer.writerows(out_rows)
+                writer.writerows({key: _csv_safe(value) for key, value in row.items()} for row in out_rows)
         except OSError as e:
             print(f"Error writing output: {e}", file=sys.stderr)
             return 1
