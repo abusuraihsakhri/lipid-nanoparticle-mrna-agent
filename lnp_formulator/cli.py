@@ -120,7 +120,7 @@ def main(argv=None):
                     print(f"Missing required CSV columns: {', '.join(sorted(required - set(fieldnames)))}", file=sys.stderr)
                     return 1
                 rows = list(reader)
-        except (csv.Error, UnicodeDecodeError) as e:
+        except (OSError, csv.Error, UnicodeDecodeError) as e:
             print(f"Error reading CSV: {e}", file=sys.stderr)
             return 1
 
