@@ -88,7 +88,10 @@ def main(argv=None):
     if args.command == "verify-audit":
         trail = AuditLogger.get_trail()
         valid = AuditLogger.verify_integrity()
-        print(f"Audit Trail Blocks: {len(trail)} | Cryptographic Integrity Verified: {valid}")
+        if not trail:
+            print("No audit entries in this process; the ledger is not persisted between CLI commands.")
+        else:
+            print(f"Audit Trail Blocks: {len(trail)} | Cryptographic Integrity Verified: {valid}")
         return 0
 
     if args.command == "batch":
@@ -106,7 +109,7 @@ def main(argv=None):
                     print(f"Missing required CSV columns: {', '.join(sorted(required - set(fieldnames)))}", file=sys.stderr)
                     return 1
                 rows = list(reader)
-        except (csv.Error, UnicodeDecodeError) as e:
+        except (OSError, csv.Error, UnicodeDecodeError) as e:
             print(f"Error reading CSV: {e}", file=sys.stderr)
             return 1
 
