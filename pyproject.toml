@@ -5,23 +5,35 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "lipid-nanoparticle-mrna-engine"
 version = "2.0.0"
-description = "LNP-Formulator: Ionizable Lipid pKa & mRNA Encapsulation Efficiency Engine"
+description = "LNP research task screening and measured formulation calculations"
 readme = "README.md"
-authors = [{ name = "Dr. Abu Suraih Sakhri", email = "abusuraih@example.com" }]
+authors = [{ name = "Dr. Abu Suraih Sakhri" }]
 license = { text = "MIT" }
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Topic :: Security/Cryptography",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Chemistry",
 ]
 requires-python = ">=3.9"
-dependencies = []
+dependencies = ["pydantic>=2,<3", "fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10", "httpx>=0.27,<1"]
+
+[tool.setuptools]
+packages = ["agents", "lnp_formulator", "web"]
+py-modules = ["cli", "simulator", "enrichment", "lnp_formulator_app"]
+
+[tool.setuptools.package-data]
+web = ["index.html"]
+
 
 [project.scripts]
+lipid-nanoparticle-mrna-agent = "cli:main"
+lnp-formulator = "lnp_formulator.cli:main"
 lipid-nanoparticle-mrna-engine = "lnp_formulator.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/abusuraihsakhri/lipid-nanoparticle-mrna-engine"
-Repository = "https://github.com/abusuraihsakhri/lipid-nanoparticle-mrna-engine.git"
+Homepage = "https://github.com/abusuraihsakhri/lipid-nanoparticle-mrna-agent"
+Repository = "https://github.com/abusuraihsakhri/lipid-nanoparticle-mrna-agent.git"

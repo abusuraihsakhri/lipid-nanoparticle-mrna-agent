@@ -4,9 +4,22 @@ Command-Line Interface for LNP-Formulator: Ionizable Lipid pKa & mRNA Encapsulat
 import argparse
 import csv
 import json
+import re
+
+_NUMERIC_LITERAL = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$")
+
+
+def _csv_safe(value):
+    """Prevent spreadsheet formulas in exported user-controlled CSV cells."""
+    if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")):
+        if not _NUMERIC_LITERAL.fullmatch(value.strip()):
+            return "'" + value
+    return value
+
 import sys
 from .models import FrontierPayload
 from .agents import LNPFormulatorCoordinator
+from .calculations import np_ratio, encapsulation_efficiency_percent, protonated_fraction
 
 coordinator = LNPFormulatorCoordinator()
 
@@ -23,6 +36,15 @@ def main(argv=None):
     p_audit.add_argument("--secondary", type=float, default=15.1)
     p_audit.add_argument("--critical", action="store_true")
     p_audit.add_argument("--status", default="DISCORDANT")
+
+    # Measured LNP properties; no empirical prediction is performed.
+    p_measure = subparsers.add_parser("measure", help="Calculate measured LNP quantities")
+    p_measure.add_argument("--nitrogen", type=float, required=True, help="Ionizable nitrogen amount (e.g. nmol)")
+    p_measure.add_argument("--phosphate", type=float, required=True, help="RNA phosphate amount (same molar unit)")
+    p_measure.add_argument("--total-mrna", type=float, required=True, help="Total mRNA quantity")
+    p_measure.add_argument("--free-mrna", type=float, required=True, help="Unencapsulated mRNA (same unit)")
+    p_measure.add_argument("--ph", type=float, required=True)
+    p_measure.add_argument("--pka", type=float, required=True, help="Experimentally measured apparent pKa")
 
     # Chat
     p_chat = subparsers.add_parser("chat", help="System configuration query")
@@ -63,6 +85,21 @@ def main(argv=None):
         print("\n" + "=" * 80)
         return 0
 
+    if args.command == "measure":
+        try:
+            measured = {
+                "np_ratio": np_ratio(args.nitrogen, args.phosphate),
+                "encapsulation_efficiency_percent": encapsulation_efficiency_percent(
+                    args.total_mrna, args.free_mrna
+                ),
+                "protonated_fraction_ideal": protonated_fraction(args.ph, args.pka),
+            }
+        except ValueError as exc:
+            print(f"Invalid measurement: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(measured, indent=2))
+        return 0
+
     if args.command == "chat":
         ans = coordinator.query_supervisory_chat(" ".join(args.query))
         print(f"\n[LNPFormulatorCoordinator]:\n{ans}\n")
@@ -78,16 +115,22 @@ def main(argv=None):
             with open(args.input, mode="r", encoding="utf-8-sig") as f:
                 reader = csv.DictReader(f)
                 fieldnames = list(reader.fieldnames or [])
+                required = {"task_id", "target_identifier", "primary_metric"}
+                if not required.issubset(fieldnames):
+                    print(f"Missing required CSV columns: {', '.join(sorted(required - set(fieldnames)))}", file=sys.stderr)
+                    return 1
                 rows = list(reader)
-        except (csv.Error, UnicodeDecodeError) as e:
+        except (OSError, csv.Error, UnicodeDecodeError) as e:
             print(f"Error reading CSV: {e}", file=sys.stderr)
             return 1
 
-        out_fields = fieldnames + ["overall_status", "total_alerts", "critical_count", "consensus_summary"]
+        out_fields = list(dict.fromkeys(fieldnames + ["overall_status", "total_alerts", "critical_count", "consensus_summary"]))
         out_rows = []
         errors = 0
         for idx, r in enumerate(rows, start=2):
             try:
+                if None in r:
+                    raise ValueError("unexpected extra CSV columns")
                 payload = FrontierPayload(
                     task_id=r.get("task_id", "TASK-01"),
                     target_identifier=r.get("target_identifier", "TARGET-01"),
@@ -111,7 +154,7 @@ def main(argv=None):
             with open(args.output, mode="w", encoding="utf-8", newline="") as f:
                 writer = csv.DictWriter(f, fieldnames=out_fields)
                 writer.writeheader()
-                writer.writerows(out_rows)
+                writer.writerows({key: _csv_safe(value) for key, value in row.items()} for row in out_rows)
         except OSError as e:
             print(f"Error writing output: {e}", file=sys.stderr)
             return 1

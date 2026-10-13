@@ -1,188 +1,106 @@
-# Lipid Nanoparticle Mrna Agent
+# Lipid Nanoparticle mRNA Agent
 
-> **Domain:** Computational Biology & AI Drug Discovery
-> **Reference Guidelines & Standards:** `wwPDB, IUPAC & CLSI Computational Guidelines`
+Research utilities for lipid nanoparticle (LNP) formulation measurements and generic rule-based task screening. This repository contains a static browser calculator, two Python CLI workflows, and FastAPI endpoints.
 
-<div align="center">
+## Browser calculator
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
+The `web/index.html` page works without a Python server. Open it in a current browser, or serve the repository root as a static site. The root `index.html` redirects to the calculator for static hosting.
 
-</div>
+The browser performs four **deterministic, input-derived** calculations:
 
----
+- **N/P ratio:** ionizable nitrogen amount divided by RNA phosphate amount, in identical molar units.
+- **Encapsulation efficiency (%):** `100 × (total mRNA − free mRNA) / total mRNA`, using equal measurement units.
+- **Ideal protonated fraction:** `1 / (1 + 10^(pH − pKa))` for a monoprotic basic group, using a **supplied, experimentally measured** pKa.
+- **DLS cumulants PDI (optional):** second cumulant divided by squared mean decay rate, using compatible units.
 
-## 📖 What It Does
+Inputs are checked for nonfinite values, invalid denominators, and inconsistent free/total mRNA. Results can be exported as JSON. Calculations run locally in the browser, with no uploads or external JavaScript dependencies.
 
-**Lipid Nanoparticle Mrna Agent** is an advanced analytical and computational platform implementing LNP N/P ratio, apparent pKa & mRNA encapsulation efficiency formulator. It provides multi-agent consensus evaluation with cryptographic audit trails and zero-PHI outbound protection.
+**Scientific scope:** these calculations do not measure or predict transfection, in-vivo biodistribution, safety, stability, or clinical suitability. The protonation equation is an idealized model, not a method for determining pKa from raw fluorescence measurements. The `enrichment.py` modules are generic threshold-based demonstrations, not validated DoE, PBPK, or ML predictors.
 
----
+## Python installation
 
-## ⚙️ Key Capabilities & Algorithmic Modules
-
-- **Deterministic Calculation Engine**: Strict compliance with standard reference formulations and thresholds.
-- **Risk & Urgency Classification**: Multi-tier categorization with automated clinical/operational action recommendations.
-- **Validation & Guardrails**: Rigorous input bounds checking and anomaly detection.
-- **Multi-Agent Consensus**: Three specialized workers (QC, Safety, Protocol Conformance) evaluate each task.
-- **HMAC-SHA256 Audit Trail**: Cryptographically chained, tamper-evident logging.
-- **Zero-PHI Outbound Guard**: Blocks SSNs, MRNs, phone numbers, and patient identifiers.
-
----
-
-## 💻 Installation
+Python 3.10–3.12 are tested in CI. Python 3.9+ is declared supported.
 
 ```bash
-pip install -e .
+python -m pip install -e ".[test]"
+python -m pytest -q
 ```
 
----
+The package provides three executable commands: `lipid-nanoparticle-mrna-agent` (generic research screening), `lnp-formulator` (LNP-specific threshold screening and measurement calculations), and the legacy `lipid-nanoparticle-mrna-engine` alias.
 
-## 🚀 CLI Quickstart & Usage
+### Measured LNP calculation
 
-### 1. Single Task Evaluation (Audit)
 ```bash
-python cli.py audit --task-id TASK-001 --target TARGET-01 --primary 28.5 --secondary 14.2 --critical --status DISCORDANT
+python -m lnp_formulator.cli measure \
+  --nitrogen 60 --phosphate 10 \
+  --total-mrna 100 --free-mrna 8 \
+  --ph 6.5 --pka 6.8
 ```
 
-### 2. Supervisory Chat Query
-```bash
-python cli.py chat "What is the system status?"
-```
+The CLI emits a JSON object containing N/P ratio, encapsulation efficiency, and ideal protonated fraction.
 
-### 3. Batch CSV Processing
+### Existing generic task evaluation
+
 ```bash
+python cli.py audit --task-id TASK-001 --target SAMPLE-001 \
+  --primary 28.5 --secondary 14.2 --status DISCORDANT
 python cli.py batch -i sample.csv -o results.csv
-```
-
-### 4. Verify Audit Trail Integrity
-```bash
+python cli.py chat "What is the system status?"
 python cli.py verify-audit
 ```
 
-### 5. Launch FastAPI REST Server
+The distinct LNP-specific threshold screener is available through `python -m lnp_formulator.cli audit` and `python -m lnp_formulator.cli batch`. These audit modes compare **generic metrics** against hard-coded rule thresholds; they do not calculate N/P, pKa, or encapsulation efficiency and should not be interpreted as clinical or GMP conformance checks.
+
+## API and local web interface
+
 ```bash
 python cli.py serve --host 127.0.0.1 --port 8000
 ```
 
-### Parameter Reference
-| Parameter | Description | Default |
-|:----------|:------------|:--------|
-| `--task-id` | Unique task/case identifier | `TASK-2026-001` |
-| `--target` | Target entity or specimen identifier | `KEY-TARGET-01` |
-| `--primary` | Primary domain measurement (float) | `28.5` |
-| `--secondary` | Secondary kinetic/confidence score (float) | `14.2` |
-| `--critical` | Flag as critical/emergency escalation | `False` |
-| `--status` | Status descriptor (NOMINAL, DISCORDANT, etc.) | `DISCORDANT` |
+Open `http://127.0.0.1:8000/` to use the packaged calculator and the optional **server audit** panel. Documentation is available at `/docs`.
 
-### Input Data Schema (CSV Batch)
+| Endpoint | Purpose |
+|---|---|
+| `GET /` | Browser calculator and audit client |
+| `GET /health` | Health metadata |
+| `POST /api/measure` | Deterministic LNP measurements |
+| `POST /api/audit` | Generic three-worker threshold audit |
+| `POST /api/chat` | Deterministic mock response (not an external LLM) |
+| `GET /api/audit/logs` | In-memory HMAC audit entries and integrity check |
+| `GET /metrics` | JSON operational counters, not Prometheus exposition |
 
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `task_id` | Unique task identifier | Required |
-| `target_identifier` | Target entity identifier | Required |
-| `primary_metric` | Primary measurement value | Required |
-| `secondary_metric` | Secondary metric value | Optional (default: 5.0) |
-| `is_critical_flag` | Critical flag (true/false) | Optional (default: false) |
-| `status_descriptor` | Status descriptor | Optional (default: NOMINAL) |
+The optional browser audit sends data to `/api/audit` **at the page's origin**. It requires a running API server; static-only hosting does not run this feature and does not fabricate a result.
 
----
+## Security and privacy
 
-## 🔧 LNP Formulator Subpackage
+- The Python audit ledger signs entries with HMAC-SHA256 and verifies every signature plus the chain links. The ledger is held **in process memory**, not a durable external audit store.
+- Set `AUDIT_SECRET_KEY` to a long, random secret to keep a stable signing key across process starts. If omitted, the application generates a new, ephemeral key. Never commit an actual key.
+- A **best-effort regular-expression guard** detects selected patterns resembling patient identifiers. It is **not** a comprehensive PHI de-identification or HIPAA-compliance solution. Do not submit patient data.
+- The static calculator computes locally. Server audit requests transmit the submitted fields to the configured API. Both APIs and the in-memory task registries are intended for controlled local use; no authentication is provided.
+- LLM provider names currently map to a deterministic mock. External Claude, OpenAI, and Ollama inference is **not implemented**.
 
-The `lnp_formulator` module provides specialized LNP formulation calculations:
+To build and run the service with Docker Compose, first supply a key in the environment:
 
 ```bash
-python -m lnp_formulator.cli audit --task-id LNP-001 --primary 29.4 --secondary 15.1
-python -m lnp_formulator.cli chat "What standard is applied?"
-python -m lnp_formulator.cli batch -i sample.csv -o batch_results.csv
-python -m lnp_formulator.cli serve --port 8000
+export AUDIT_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
+docker compose up --build
 ```
 
----
+Docker publishes port 8000 by default; do not expose it publicly without authentication, authorization, transport security, and appropriate network controls.
 
-## 🛡️ Security & Enterprise Architecture
-
-* **Zero-PHI Outbound Interceptor:** Active regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
-* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
-
-### Security Configuration
-
-Set the `AUDIT_SECRET_KEY` environment variable for persistent audit integrity across sessions:
+## Testing and deployment
 
 ```bash
-# Linux/macOS
-export AUDIT_SECRET_KEY="your-secure-random-key"
-
-# Windows
-set AUDIT_SECRET_KEY=your-secure-random-key
+python -m pip install -e ".[test]"
+python -m compileall -q agents lnp_formulator tests cli.py enrichment.py simulator.py
+python -m pytest -q
+python simulator.py 100
 ```
 
----
+CI tests Python 3.10, 3.11, and 3.12. The standalone HTML page is suitable for static hosting, including GitHub Pages; **an active Pages deployment has not been verified**. Static hosts cannot execute the Python FastAPI server.
 
-## 🧪 Testing & Verification
+Modern Chrome, Firefox, Safari, and Edge support the browser page's standard JavaScript APIs. No browser-based Python or Pyodide runtime is required because the standalone calculations are implemented in JavaScript.
 
-Run the automated test suite:
+## License
 
-```bash
-pytest -v
-```
-
-Execute high-throughput batch simulation benchmarks:
-
-```bash
-python simulator.py 1000
-```
-
----
-
-## 🐳 Container Deployment
-
-```bash
-docker build -t lipid-nanoparticle-mrna-agent .
-docker run -p 8000:8000 -e AUDIT_SECRET_KEY=your-secure-key lipid-nanoparticle-mrna-agent
-```
-
-Or using Docker Compose:
-
-```bash
-docker-compose up -d
-```
-
----
-
-## 📁 Project Structure
-
-```
-lipid-nanoparticle-mrna-agent/
-├── agents/                  # Core agent modules
-│   ├── api.py              # FastAPI REST endpoints
-│   ├── base.py             # Security, PHI guard, audit trail
-│   ├── models.py           # Pydantic data models
-│   ├── supervisor.py       # Multi-agent orchestrator
-│   ├── workers.py          # Specialized evaluation workers
-│   ├── llm_factory.py      # LLM provider factory
-│   ├── learning.py         # Bayesian calibration engine
-│   ├── metrics.py          # Prometheus metrics
-│   └── streamer.py         # WebSocket telemetry
-├── lnp_formulator/         # LNP formulation subpackage
-│   ├── agents.py           # Specialized LNP agents
-│   ├── engine.py           # Core calculation engine
-│   ├── models.py           # LNP data models
-│   ├── cli.py              # LNP CLI interface
-│   └── server.py           # LNP FastAPI server
-├── tests/                  # Test suite
-├── web/                    # Web operations console
-├── cli.py                  # Main CLI entry point
-├── simulator.py            # High-throughput simulator
-├── enrichment.py           # Domain enrichment features
-├── pyproject.toml          # Project configuration
-├── Dockerfile              # Container build
-└── docker-compose.yml      # Container orchestration
-```
+MIT — see [LICENSE](LICENSE).
