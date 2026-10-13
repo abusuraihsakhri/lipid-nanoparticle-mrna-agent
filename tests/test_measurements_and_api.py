@@ -103,3 +103,9 @@ def test_audit_log_snapshot_is_immutable_from_callers():
     copy = trail.get_trail()
     copy[0]["actor"] = "impostor"
     assert trail.verify_integrity() is True
+
+
+def test_unsupported_llm_provider_fails_explicitly():
+    from agents.llm_factory import LLMFactory
+    with pytest.raises(ValueError, match="Only mock inference"):
+        LLMFactory.create("openai")
