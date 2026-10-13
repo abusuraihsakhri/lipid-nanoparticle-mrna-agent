@@ -13,7 +13,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Chemistry",
 ]
 requires-python = ">=3.9"
 dependencies = ["pydantic>=2,<3", "fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
@@ -36,4 +36,4 @@ lipid-nanoparticle-mrna-engine = "lnp_formulator.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/abusuraihsakhri/lipid-nanoparticle-mrna-agent"
-Repository = "https://github.com/abusuraihsakhri/lipid-nanoparticle-mrna-engine.git"
+Repository = "https://github.com/abusuraihsakhri/lipid-nanoparticle-mrna-agent.git"
